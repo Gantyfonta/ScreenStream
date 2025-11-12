@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='white'%3E%3Cpath%20d='M9.75%2017L9%2020l-1%201h8l-1-1-.75-3M3%2013h18M5%2017h14a2%202%200%20002-2V5a2%202%200%2000-2-2H5a2%202%200%2000-2%202v10a2%202%200%20002%202z'/%3E%3C/svg%3E" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screen Share</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0D1117;
+            color: #C9D1D9;
+        }
+        input {
+            background-color: #010409;
+            border-color: #30363D;
+        }
+        input:focus {
+            border-color: #58A6FF;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+            outline: none;
+        }
+        button {
+            background-color: #238636;
+            color: white;
+        }
+        button:hover {
+            background-color: #2ea043;
+        }
+        button:disabled {
+            background-color: #30363D;
+            cursor: not-allowed;
+        }
+        .btn-danger {
+            background-color: #da3633;
+        }
+        .btn-danger:hover {
+            background-color: #f85149;
+        }
+    </style>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "firebase/": "https://aistudiocdn.com/firebase@^12.5.0/"
+  }
+}
+</script>
+</head>
+<body class="font-sans">
+
+    <!-- Join View -->
+    <div id="join-view" class="flex flex-col items-center justify-center h-screen p-4">
+        <h1 class="text-4xl font-bold tracking-tight text-white mb-2">Screen Share</h1>
+        <p class="text-gray-400 mb-6">Enter a room name to join or start a session.</p>
+        <form id="join-form" class="flex items-center space-x-2 w-full max-w-sm">
+            <input id="room-id-input" type="text" required placeholder="my-secret-room" class="flex-grow w-full p-2 border rounded-md focus:outline-none">
+            <button type="submit" class="px-4 py-2 font-semibold rounded-md transition-colors">Join</button>
+        </form>
+    </div>
+
+    <!-- Room View -->
+    <div id="room-view" class="hidden flex flex-col h-screen p-4">
+        <header class="flex-shrink-0 mb-4 flex justify-between items-center">
+             <h1 class="text-xl font-bold">Room: <span id="room-id-display" class="font-mono text-green-400"></span></h1>
+             <button id="leave-btn" class="px-3 py-1 text-sm font-semibold rounded-md transition-colors">Leave Room</button>
+        </header>
+        <main class="flex-1 w-full h-full bg-black rounded-lg relative overflow-hidden">
+            <video id="remote-video" autoplay playsinline class="w-full h-full object-contain"></video>
+            <div id="status-message" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                <p id="status-text" class="text-2xl text-gray-400">Welcome! Waiting for a presenter.</p>
+                <div id="controls" class="mt-4 flex space-x-4">
+                    <button id="start-share-btn" class="px-6 py-3 font-semibold rounded-md transition-colors">Start Sharing</button>
+                    <button id="stop-share-btn" class="hidden px-6 py-3 font-semibold rounded-md transition-colors btn-danger">Stop Sharing</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="index.js"></script>
+</body>
+</html>

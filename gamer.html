@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gamer GeaR</title>
+  <meta name="description" content="Get the latest hardware to dominate the competition." />
+  <style>
+    :root{
+      --bg:#05060a;
+      --accent:#00d8ff;
+      --accent2:#ff007a;
+      --panel:#0e1117;
+      --text:#e6eef7;
+      --muted:#98a0ac;
+      --radius:14px;
+      --shadow:0 8px 24px rgba(0,0,0,0.6);
+      font-family:'Segoe UI',Roboto,system-ui,Helvetica,Arial,sans-serif;
+    }
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);}
+    body{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      background:radial-gradient(1200px 600px at 20% 20%,rgba(255,0,122,0.1),transparent 30%),
+                 radial-gradient(1000px 400px at 80% 80%,rgba(0,216,255,0.1),transparent 30%),
+                 var(--bg);
+      overflow-x:hidden;
+      padding:40px 20px;
+      box-sizing:border-box;
+    }
+    header{
+      text-align:center;
+      margin-bottom:40px;
+    }
+    .logo{
+      font-size:44px;font-weight:800;letter-spacing:-1px;
+      background:linear-gradient(90deg,var(--accent2),var(--accent));
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      text-shadow:0 0 20px rgba(255,0,122,0.25);
+    }
+    .tagline{color:var(--muted);font-size:17px;margin-top:10px;}
+    main{
+      display:flex;flex-direction:column;align-items:center;max-width:1000px;width:100%;
+      background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.04);
+      border-radius:var(--radius);box-shadow:var(--shadow);
+      backdrop-filter:blur(6px) saturate(120%);
+      padding:30px 20px;
+    }
+    .hero{
+      width:100%;max-width:900px;border-radius:var(--radius);
+      background:linear-gradient(135deg,var(--accent2) 0%,var(--accent) 100%);
+      padding:2px;margin-bottom:28px;
+    }
+    .hero-inner{
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:40px 30px;
+      display:flex;flex-direction:column;align-items:center;text-align:center;
+    }
+    .hero h1{margin:0;font-size:36px;}
+    .hero p{max-width:580px;margin-top:12px;color:var(--muted);font-size:16px;line-height:1.5;}
+    .actions{margin-top:30px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center;}
+    .btn{
+      padding:12px 22px;border-radius:10px;font-weight:600;font-size:15px;
+      cursor:pointer;border:0;
+    }
+    .btn-primary{
+      background:linear-gradient(90deg,var(--accent2),var(--accent));
+      color:#fff;box-shadow:0 8px 20px rgba(0,216,255,0.2);
+    }
+    .btn-outline{
+      background:transparent;border:1px solid rgba(255,255,255,0.08);
+      color:var(--accent);
+    }
+    section.products{
+      margin-top:40px;
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+      gap:20px;width:100%;
+    }
+    .card{
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:18px;box-shadow:0 4px 16px rgba(0,0,0,0.3);
+      border:1px solid rgba(255,255,255,0.04);
+      display:flex;flex-direction:column;align-items:center;text-align:center;
+      transition:transform 0.2s ease;
+    }
+    .card:hover{transform:translateY(-6px);}
+    .card img{width:100%;border-radius:10px;margin-bottom:12px;}
+    .card h3{margin:0;font-size:18px;}
+    .card p{color:var(--muted);font-size:14px;margin:8px 0 0;}
+    footer{
+      margin-top:60px;color:var(--muted);font-size:13px;
+    }
+    @media(max-width:520px){
+      .hero h1{font-size:28px;}
+      .hero p{font-size:15px;}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Gamer GeaR</div>
+    <div class="tagline">Get the latest hardware to dominate the competition.</div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="hero-inner">
+        <h1>Power Up Your Setup</h1>
+        <p>Explore cutting-edge GPUs, CPUs, peripherals, and accessories engineered to give you the competitive edge.</p>
+        <div class="actions">
+          <button class="btn btn-primary" id="shopBtn">Shop Now</button>
+          <button class="btn btn-outline" id="learnBtn">Learn More</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="products" aria-label="Featured products">
+      <div class="card">
+        <img src="https://images.unsplash.com/photo-1606813902596-07c2244ff5da?auto=format&fit=crop&w=600&q=80" alt="Gaming PC tower">
+        <h3>GTX Ultra Tower</h3>
+        <p>Liquid-cooled performance and RGB brilliance for top-tier gameplay.</p>
+      </div>
+      <div class="card">
+        <img src="https://images.unsplash.com/photo-1610465299995-fae2d6b88d54?auto=format&fit=crop&w=600&q=80" alt="Mechanical keyboard">
+        <h3>Strike Pro Keyboard</h3>
+        <p>Hot-swappable mechanical switches built for precision and speed.</p>
+      </div>
+      <div class="card">
+        <img src="https://images.unsplash.com/photo-1587202372775-f7d6d1d3b7c4?auto=format&fit=crop&w=600&q=80" alt="Gaming headset">
+        <h3>Echo 7 Headset</h3>
+        <p>Immersive 7.1 surround sound to hear every step and shot.</p>
+      </div>
+      <div class="card">
+        <img src="https://images.unsplash.com/photo-1606813902887-1ec2c70a40d0?auto=format&fit=crop&w=600&q=80" alt="Gaming mouse">
+        <h3>Phantom Mouse</h3>
+        <p>Ultra-lightweight precision with 26 K DPI optical tracking.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 2025 Gamer GeaR • Level up your hardware.</footer>
+
+  <script>
+    document.getElementById('shopBtn').addEventListener('click',()=>{
+      alert('Redirecting to Gamer GeaR shop (demo only).');
+    });
+    document.getElementById('learnBtn').addEventListener('click',()=>{
+      alert('Gamer GeaR builds performance rigs, peripherals, and accessories that help gamers dominate the competition.');
+    });
+  </script>
+</body>
+</html>
