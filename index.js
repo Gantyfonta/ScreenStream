@@ -198,9 +198,10 @@ async function setupViewerConnection(roomRef, roomData) {
     
     pc.ontrack = (event) => {
         statusMessageContainer.classList.add('hidden'); // Hide status message once stream starts
-        event.streams[0].getTracks().forEach(track => {
-            remoteStream.addTrack(track);
-        });
+        // Use event.track which is more reliable than event.streams[0]
+        if (event.track) {
+            remoteStream.addTrack(event.track);
+        }
     };
     remoteVideo.srcObject = remoteStream;
 
