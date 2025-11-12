@@ -32,7 +32,6 @@ const servers = {
 
 let pc = new RTCPeerConnection(servers);
 let localStream = null;
-let remoteStream = null;
 let roomId = null;
 let isPresenter = false;
 let unsubscribers = [];
@@ -194,16 +193,13 @@ startShareBtn.addEventListener('click', async () => {
 // Setup connection as a viewer
 async function setupViewerConnection(roomRef, roomData) {
     resetPeerConnection();
-    remoteStream = new MediaStream();
-    
+
     pc.ontrack = (event) => {
         statusMessageContainer.classList.add('hidden'); // Hide status message once stream starts
-        // Use event.track which is more reliable than event.streams[0]
-        if (event.track) {
-            remoteStream.addTrack(event.track);
+        if (event.streams && event.streams[0]) {
+            remoteVideo.srcObject = event.streams[0];
         }
     };
-    remoteVideo.srcObject = remoteStream;
 
     const offerCandidates = collection(roomRef, 'offerCandidates');
     const answerCandidates = collection(roomRef, 'answerCandidates');
