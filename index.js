@@ -35,7 +35,7 @@ let localStream = null;
 let remoteStream = null;
 let roomId = null;
 let isPresenter = false;
-let unsubscribeRoom = () => {};
+let unsubscribers = [];
 
 // DOM elements
 const joinView = document.getElementById('join-view');
@@ -80,29 +80,42 @@ async function joinRoom(id) {
     roomView.classList.remove('hidden');
     roomIdDisplay.textContent = id;
     
+    // Clean up any previous listeners before joining a new room
+    cleanup();
+
     const roomRef = doc(db, 'rooms', id);
 
-    unsubscribeRoom = onSnapshot(roomRef, async (snapshot) => {
+    const unsubscribeRoom = onSnapshot(roomRef, async (snapshot) => {
         const roomData = snapshot.data();
         
         // If room is deleted (presenter left), reset state for viewers
         if (!snapshot.exists()) {
              if (!isPresenter) {
+                console.log("Presenter left. Cleaning up viewer state.");
                 handlePresenterLeft();
              }
              return;
         }
 
-        // A presenter exists, and we are a new viewer
-        if (roomData.presenterId && !isPresenter && !pc.currentRemoteDescription) {
-             statusText.textContent = "Presenter found. Connecting to stream...";
-             await setupViewerConnection(roomRef, roomData);
+        // A presenter exists, and we are a viewer who hasn't connected yet
+        if (roomData.offer && !isPresenter && !pc.remoteDescription) {
+            console.log("Offer found. Setting up viewer connection.");
+            statusText.textContent = "Presenter found. Connecting to stream...";
+            await setupViewerConnection(roomRef, roomData);
+        }
+
+        // We are the presenter, and a viewer has provided an answer
+        if (roomData.answer && isPresenter && !pc.remoteDescription) {
+            console.log("Answer found. Finalizing presenter connection.");
+            await pc.setRemoteDescription(new RTCSessionDescription(roomData.answer))
+                .catch(e => console.error("Error setting remote description for presenter:", e));
         }
     });
+    unsubscribers.push(unsubscribeRoom);
 
     // Check initial state of the room
     const initialSnapshot = await getDoc(roomRef);
-    if (!initialSnapshot.exists() || !initialSnapshot.data().presenterId) {
+    if (!initialSnapshot.exists() || !initialSnapshot.data().offer) {
         handlePresenterLeft(); // Set initial state for joining an empty room
     }
 }
@@ -134,9 +147,8 @@ startShareBtn.addEventListener('click', async () => {
     localStream.getVideoTracks()[0].onended = () => {
         stopScreenShare();
     };
-
-    pc.close(); // Close any existing connection
-    pc = new RTCPeerConnection(servers);
+    
+    resetPeerConnection();
     
     localStream.getTracks().forEach(track => {
         pc.addTrack(track, localStream);
@@ -151,6 +163,16 @@ startShareBtn.addEventListener('click', async () => {
             addDoc(offerCandidates, event.candidate.toJSON());
         }
     };
+    
+    const unsubAnswerCandidates = onSnapshot(answerCandidates, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate for presenter:", e));
+            }
+        });
+    });
+    unsubscribers.push(unsubAnswerCandidates);
 
     const offerDescription = await pc.createOffer();
     await pc.setLocalDescription(offerDescription);
@@ -161,26 +183,9 @@ startShareBtn.addEventListener('click', async () => {
     };
     
     // Set presenter info, this will also create the room doc if it doesn't exist
-    await setDoc(doc(db, 'rooms', roomId), { offer, presenterId: 'presenter' }, { merge: true });
+    await setDoc(roomRef, { offer, presenterId: 'presenter' }, { merge: true });
 
-    // Listen for the answer from a viewer
-    const unsubAnswer = onSnapshot(roomRef, (snapshot) => {
-        const data = snapshot.data();
-        if (!pc.currentRemoteDescription && data?.answer) {
-            pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-        }
-    });
-
-    // Listen for answer candidates from a viewer
-    const unsubAnswerCandidates = onSnapshot(answerCandidates, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-                pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-            }
-        });
-    });
-
-    statusText.textContent = "You are presenting.";
+    statusText.textContent = "You are presenting. Waiting for a viewer to connect.";
     statusMessageContainer.classList.remove('hidden');
     stopShareBtn.classList.remove('hidden');
     startShareBtn.classList.add('hidden');
@@ -188,8 +193,7 @@ startShareBtn.addEventListener('click', async () => {
 
 // Setup connection as a viewer
 async function setupViewerConnection(roomRef, roomData) {
-    pc.close();
-    pc = new RTCPeerConnection(servers);
+    resetPeerConnection();
     remoteStream = new MediaStream();
     
     pc.ontrack = (event) => {
@@ -210,7 +214,9 @@ async function setupViewerConnection(roomRef, roomData) {
     };
     
     if (roomData.offer) {
-        await pc.setRemoteDescription(new RTCSessionDescription(roomData.offer));
+        await pc.setRemoteDescription(new RTCSessionDescription(roomData.offer))
+            .catch(e => console.error("Error setting remote description for viewer:", e));
+        
         const answerDescription = await pc.createAnswer();
         await pc.setLocalDescription(answerDescription);
 
@@ -220,32 +226,36 @@ async function setupViewerConnection(roomRef, roomData) {
         };
         await updateDoc(roomRef, { answer });
         
-        onSnapshot(offerCandidates, (snapshot) => {
+        const unsubOfferCandidates = onSnapshot(offerCandidates, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === 'added') {
-                    pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                    const candidate = new RTCIceCandidate(change.doc.data());
+                    pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate for viewer:", e));
                 }
             });
         });
+        unsubscribers.push(unsubOfferCandidates);
     }
 }
 
 // Stop sharing screen
 async function stopScreenShare() {
     if (!isPresenter) return;
-    isPresenter = false;
     
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
     }
-    pc.close();
     
     const roomRef = doc(db, 'rooms', roomId);
     // Delete the room doc to signal the end of the presentation for all viewers
     await deleteDoc(roomRef).catch(e => console.error("Error cleaning up room:", e));
+    
+    isPresenter = false;
+    handlePresenterLeft(); // Also reset the presenter's UI and state
 }
 
 function handlePresenterLeft() {
+    console.log("Resetting UI and connection state.");
     remoteVideo.srcObject = null;
     statusMessageContainer.classList.remove('hidden');
     statusText.textContent = 'Welcome! Waiting for a presenter.';
@@ -253,20 +263,30 @@ function handlePresenterLeft() {
     startShareBtn.classList.remove('hidden');
     stopShareBtn.classList.add('hidden');
     
-    if (pc.connectionState !== 'closed') {
+    cleanup();
+}
+
+function resetPeerConnection() {
+    if (pc) {
+        pc.onicecandidate = null;
+        pc.ontrack = null;
         pc.close();
     }
-    // Re-initialize for a potential new connection
     pc = new RTCPeerConnection(servers);
+}
+
+function cleanup() {
+    console.log(`Cleaning up ${unsubscribers.length} listeners.`);
+    unsubscribers.forEach(unsubscribe => unsubscribe());
+    unsubscribers = [];
+    
+    resetPeerConnection();
 }
 
 // Leave room
 leaveBtn.addEventListener('click', async () => {
     if (isPresenter) {
         await stopScreenShare();
-    }
-    if (typeof unsubscribeRoom === 'function') {
-        unsubscribeRoom();
     }
     // Easiest way to reset state is to reload to the join page
     window.location.href = window.location.pathname;
