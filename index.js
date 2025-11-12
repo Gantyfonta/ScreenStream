@@ -59,20 +59,22 @@ joinForm.addEventListener('submit', (e) => {
     }
 });
 
-// Auto-join if room ID is in URL
+// Auto-join if room ID is in URL hash
 window.addEventListener('load', () => {
-    const params = new URLSearchParams(window.location.search);
-    const urlRoomId = params.get('room');
-    if (urlRoomId) {
-        roomIdInput.value = urlRoomId;
-        joinRoom(urlRoomId);
+    if (window.location.hash) {
+        const urlRoomId = window.location.hash.substring(1);
+        if (urlRoomId) {
+            roomIdInput.value = urlRoomId;
+            joinRoom(urlRoomId);
+        }
     }
 });
 
 
 async function joinRoom(id) {
     roomId = id;
-    window.history.pushState(null, null, `?room=${id}`);
+    // Use hash to avoid cross-origin errors in sandboxed environments
+    window.location.hash = id;
     
     joinView.classList.add('hidden');
     roomView.classList.remove('hidden');
