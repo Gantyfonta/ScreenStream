@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, collection, addDoc, onSnapshot, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, collection, addDoc, onSnapshot, updateDoc, deleteDoc, getDoc, setDoc } from "firebase/firestore";
 
 
 // Your web app's Firebase configuration
@@ -161,7 +161,7 @@ startShareBtn.addEventListener('click', async () => {
     };
     
     // Set presenter info, this will also create the room doc if it doesn't exist
-    await updateDoc(doc(db, 'rooms', roomId), { offer, presenterId: 'presenter' }, { merge: true });
+    await setDoc(doc(db, 'rooms', roomId), { offer, presenterId: 'presenter' }, { merge: true });
 
     // Listen for the answer from a viewer
     const unsubAnswer = onSnapshot(roomRef, (snapshot) => {
