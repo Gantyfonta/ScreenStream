@@ -113,13 +113,21 @@ startShareBtn.addEventListener('click', async () => {
     startShareBtn.disabled = true;
 
     try {
+        // First, try to get video and audio. This can fail if the user
+        // denies audio permission or the system doesn't support it.
         localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
     } catch (err) {
-        console.error("Error getting display media.", err);
-        alert("Could not start screen share. Please grant permission and try again.");
-        isPresenter = false;
-        startShareBtn.disabled = false;
-        return;
+        console.warn("Could not get display media with audio, trying without.", err);
+        try {
+            // Fallback to video only
+            localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        } catch (fallbackErr) {
+            console.error("Error getting display media.", fallbackErr);
+            alert("Could not start screen share. Please grant permission and try again.");
+            isPresenter = false;
+            startShareBtn.disabled = false;
+            return;
+        }
     }
     
     // When user stops sharing via browser UI

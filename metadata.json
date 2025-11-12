@@ -2,6 +2,7 @@
   "name": "Screen Share",
   "description": "A simple screen sharing application.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ]
 }
