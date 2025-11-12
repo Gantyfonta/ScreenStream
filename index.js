@@ -222,7 +222,10 @@ async function setupViewerConnection(roomRef, roomData) {
 
     pc.ontrack = (event) => {
         statusMessageContainer.classList.add('hidden');
-        remoteStream.addTrack(event.track);
+        // A more robust way to handle tracks
+        event.streams[0].getTracks().forEach(track => {
+            remoteStream.addTrack(track);
+        });
     };
 
     const offerCandidates = collection(roomRef, 'offerCandidates');
