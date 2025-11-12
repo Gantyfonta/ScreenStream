@@ -32,9 +32,11 @@ const servers = {
 
 let pc = new RTCPeerConnection(servers);
 let localStream = null;
+let remoteStream = null;
 let roomId = null;
 let isPresenter = false;
 let unsubscribers = [];
+let pendingCandidates = []; // Queue for ICE candidates that arrive early
 
 // DOM elements
 const joinView = document.getElementById('join-view');
@@ -48,6 +50,7 @@ const stopShareBtn = document.getElementById('stop-share-btn');
 const leaveBtn = document.getElementById('leave-btn');
 const statusText = document.getElementById('status-text');
 const statusMessageContainer = document.getElementById('status-message');
+const loader = document.getElementById('loader');
 
 // Handle joining a room
 joinForm.addEventListener('submit', (e) => {
@@ -99,6 +102,7 @@ async function joinRoom(id) {
         // A presenter exists, and we are a viewer who hasn't connected yet
         if (roomData.offer && !isPresenter && !pc.remoteDescription) {
             console.log("Offer found. Setting up viewer connection.");
+            loader.classList.remove('hidden');
             statusText.textContent = "Presenter found. Connecting to stream...";
             await setupViewerConnection(roomRef, roomData);
         }
@@ -106,8 +110,18 @@ async function joinRoom(id) {
         // We are the presenter, and a viewer has provided an answer
         if (roomData.answer && isPresenter && !pc.remoteDescription) {
             console.log("Answer found. Finalizing presenter connection.");
-            await pc.setRemoteDescription(new RTCSessionDescription(roomData.answer))
-                .catch(e => console.error("Error setting remote description for presenter:", e));
+            const answerDescription = new RTCSessionDescription(roomData.answer);
+            try {
+                await pc.setRemoteDescription(answerDescription);
+                console.log("Remote description set for presenter. Processing queued candidates.");
+                // Process any candidates that arrived before the answer was set
+                pendingCandidates.forEach(candidate => {
+                    pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Presenter: Error adding queued ICE candidate", e));
+                });
+                pendingCandidates = [];
+            } catch (e) {
+                console.error("Error setting remote description for presenter:", e);
+            }
         }
     });
     unsubscribers.push(unsubscribeRoom);
@@ -123,10 +137,11 @@ async function joinRoom(id) {
 startShareBtn.addEventListener('click', async () => {
     isPresenter = true;
     startShareBtn.disabled = true;
+    loader.classList.remove('hidden');
+    statusText.textContent = 'Initializing stream...';
 
     try {
-        // First, try to get video and audio. This can fail if the user
-        // denies audio permission or the system doesn't support it.
+        // First, try to get video and audio.
         localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
     } catch (err) {
         console.warn("Could not get display media with audio, trying without.", err);
@@ -138,6 +153,8 @@ startShareBtn.addEventListener('click', async () => {
             alert("Could not start screen share. Please grant permission and try again.");
             isPresenter = false;
             startShareBtn.disabled = false;
+            loader.classList.add('hidden');
+            statusText.textContent = 'Welcome! Waiting for a presenter.';
             return;
         }
     }
@@ -163,11 +180,17 @@ startShareBtn.addEventListener('click', async () => {
         }
     };
     
+    // Listen for candidates from the viewer
     const unsubAnswerCandidates = onSnapshot(answerCandidates, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
             if (change.type === 'added') {
-                const candidate = new RTCIceCandidate(change.doc.data());
-                pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate for presenter:", e));
+                const candidate = change.doc.data();
+                if (pc.remoteDescription) {
+                    pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding ICE candidate for presenter:", e));
+                } else {
+                    // Queue the candidate if the remote description isn't set yet
+                    pendingCandidates.push(candidate);
+                }
             }
         });
     });
@@ -181,9 +204,9 @@ startShareBtn.addEventListener('click', async () => {
         type: offerDescription.type,
     };
     
-    // Set presenter info, this will also create the room doc if it doesn't exist
-    await setDoc(roomRef, { offer, presenterId: 'presenter' }, { merge: true });
+    await setDoc(roomRef, { offer }, { merge: true });
 
+    loader.classList.add('hidden');
     statusText.textContent = "You are presenting. Waiting for a viewer to connect.";
     statusMessageContainer.classList.remove('hidden');
     stopShareBtn.classList.remove('hidden');
@@ -194,11 +217,12 @@ startShareBtn.addEventListener('click', async () => {
 async function setupViewerConnection(roomRef, roomData) {
     resetPeerConnection();
 
+    remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
+
     pc.ontrack = (event) => {
-        statusMessageContainer.classList.add('hidden'); // Hide status message once stream starts
-        if (event.streams && event.streams[0]) {
-            remoteVideo.srcObject = event.streams[0];
-        }
+        statusMessageContainer.classList.add('hidden');
+        remoteStream.addTrack(event.track);
     };
 
     const offerCandidates = collection(roomRef, 'offerCandidates');
@@ -210,28 +234,44 @@ async function setupViewerConnection(roomRef, roomData) {
         }
     };
     
-    if (roomData.offer) {
-        await pc.setRemoteDescription(new RTCSessionDescription(roomData.offer))
-            .catch(e => console.error("Error setting remote description for viewer:", e));
-        
-        const answerDescription = await pc.createAnswer();
-        await pc.setLocalDescription(answerDescription);
-
-        const answer = {
-            type: answerDescription.type,
-            sdp: answerDescription.sdp,
-        };
-        await updateDoc(roomRef, { answer });
-        
-        const unsubOfferCandidates = onSnapshot(offerCandidates, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === 'added') {
-                    const candidate = new RTCIceCandidate(change.doc.data());
-                    pc.addIceCandidate(candidate).catch(e => console.error("Error adding ICE candidate for viewer:", e));
+    // Listen for candidates from the presenter
+    const unsubOfferCandidates = onSnapshot(offerCandidates, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+                 const candidate = change.doc.data();
+                if (pc.remoteDescription) {
+                     pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding ICE candidate for viewer:", e));
+                } else {
+                    pendingCandidates.push(candidate);
                 }
-            });
+            }
         });
-        unsubscribers.push(unsubOfferCandidates);
+    });
+    unsubscribers.push(unsubOfferCandidates);
+    
+    if (roomData.offer) {
+        const offerDescription = new RTCSessionDescription(roomData.offer);
+        try {
+            await pc.setRemoteDescription(offerDescription);
+            console.log("Remote description set for viewer. Processing queued candidates.");
+            // Process any candidates that arrived before the offer was set
+            pendingCandidates.forEach(candidate => {
+                pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Viewer: Error adding queued ICE candidate", e));
+            });
+            pendingCandidates = [];
+
+            const answerDescription = await pc.createAnswer();
+            await pc.setLocalDescription(answerDescription);
+
+            const answer = {
+                type: answerDescription.type,
+                sdp: answerDescription.sdp,
+            };
+            await updateDoc(roomRef, { answer });
+
+        } catch (e) {
+            console.error("Error in viewer connection setup:", e);
+        }
     }
 }
 
@@ -244,16 +284,23 @@ async function stopScreenShare() {
     }
     
     const roomRef = doc(db, 'rooms', roomId);
-    // Delete the room doc to signal the end of the presentation for all viewers
+    // Delete the room doc to signal the end of the presentation
     await deleteDoc(roomRef).catch(e => console.error("Error cleaning up room:", e));
     
+    const wasPresenter = isPresenter;
     isPresenter = false;
-    handlePresenterLeft(); // Also reset the presenter's UI and state
+    
+    // Only reset UI if we were the one presenting.
+    if (wasPresenter) {
+        handlePresenterLeft();
+    }
 }
 
 function handlePresenterLeft() {
     console.log("Resetting UI and connection state.");
+    loader.classList.add('hidden');
     remoteVideo.srcObject = null;
+    remoteStream = null;
     statusMessageContainer.classList.remove('hidden');
     statusText.textContent = 'Welcome! Waiting for a presenter.';
     startShareBtn.disabled = false;
@@ -270,6 +317,7 @@ function resetPeerConnection() {
         pc.close();
     }
     pc = new RTCPeerConnection(servers);
+    pendingCandidates = []; // Reset the queue with the connection
 }
 
 function cleanup() {
@@ -286,5 +334,6 @@ leaveBtn.addEventListener('click', async () => {
         await stopScreenShare();
     }
     // Easiest way to reset state is to reload to the join page
-    window.location.href = window.location.pathname;
+    window.location.hash = '';
+    window.location.reload();
 });
