@@ -45,6 +45,7 @@ const joinForm = document.getElementById('join-form');
 const roomIdInput = document.getElementById('room-id-input');
 const roomIdDisplay = document.getElementById('room-id-display');
 const remoteVideo = document.getElementById('remote-video');
+const localVideoPreview = document.getElementById('local-video-preview');
 const startShareBtn = document.getElementById('start-share-btn');
 const stopShareBtn = document.getElementById('stop-share-btn');
 const leaveBtn = document.getElementById('leave-btn');
@@ -159,6 +160,10 @@ startShareBtn.addEventListener('click', async () => {
         }
     }
     
+    // Show local preview
+    localVideoPreview.srcObject = localStream;
+    localVideoPreview.classList.remove('hidden');
+
     // When user stops sharing via browser UI
     localStream.getVideoTracks()[0].onended = () => {
         stopScreenShare();
@@ -287,6 +292,10 @@ async function stopScreenShare() {
         localStream.getTracks().forEach(track => track.stop());
     }
     
+    // Hide local preview
+    localVideoPreview.srcObject = null;
+    localVideoPreview.classList.add('hidden');
+    
     const roomRef = doc(db, 'rooms', roomId);
     // Delete the room doc to signal the end of the presentation
     await deleteDoc(roomRef).catch(e => console.error("Error cleaning up room:", e));
@@ -310,6 +319,10 @@ function handlePresenterLeft() {
     startShareBtn.disabled = false;
     startShareBtn.classList.remove('hidden');
     stopShareBtn.classList.add('hidden');
+
+    // Hide local preview
+    localVideoPreview.srcObject = null;
+    localVideoPreview.classList.add('hidden');
     
     cleanup();
 }
