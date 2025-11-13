@@ -222,13 +222,17 @@ startShareBtn.addEventListener('click', async () => {
 async function setupViewerConnection(roomRef, roomData) {
     resetPeerConnection();
 
+    // More robustly handle remote stream creation
+    remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
+
     pc.ontrack = (event) => {
-        // This event fires when a track is added to the connection.
-        // We take the stream associated with the track and set it as the video source.
-        if (remoteVideo.srcObject !== event.streams[0]) {
-            console.log('Received remote stream, attaching to video element.');
-            remoteVideo.srcObject = event.streams[0];
+        // When a track is received, add it to our remote stream
+        console.log('Received remote track:', event.track.kind);
+        if (remoteStream) {
+            remoteStream.addTrack(event.track);
         }
+        
         // Once we receive tracks, we can hide the status message.
         statusMessageContainer.classList.add('hidden');
         loader.classList.add('hidden');
@@ -313,7 +317,12 @@ function handlePresenterLeft() {
     console.log("Resetting UI and connection state.");
     loader.classList.add('hidden');
     remoteVideo.srcObject = null;
+    
+    if (remoteStream) {
+        remoteStream.getTracks().forEach(track => track.stop());
+    }
     remoteStream = null;
+
     statusMessageContainer.classList.remove('hidden');
     statusText.textContent = 'Welcome! Waiting for a presenter.';
     startShareBtn.disabled = false;
